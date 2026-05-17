@@ -7,7 +7,6 @@ import { hash } from 'bcrypt';
 import { PaginatedResultDto } from './dto/pagenation.dto';
 import { UserResponseDto } from './dto/response-user.dto';
 import { GetUsersDto } from './dto/get-req-users.dto';
-import { error } from 'console';
 import { NotFoundException } from '@nestjs/common';
 
 @Injectable()
@@ -45,16 +44,17 @@ export class UsersService {
       const newUser = await this.prisma.user.create({
         data: {
           ...userData,
-          passwordHash,
+          password: passwordHash,
         },
       });
 
-      return new UserResponseDto(userData);
+      return new UserResponseDto(newUser);
     } catch (error: unknown) {
       console.error(error);
       throw new InternalServerErrorException('Gagal membuat pengguna baru');
     }
   }
+
   async findAll(
     fillterDto: GetUsersDto,
   ): Promise<PaginatedResultDto<UserResponseDto>> {
