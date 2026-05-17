@@ -147,7 +147,21 @@ export class UsersService {
     return new UserResponseDto(updateUser);
   }
 
-  async remove(id: number): Promise<boolean> {
-    return true;
+  async remove(idUser: string): Promise<void> {
+    const isUserExist = await this.prisma.user.findUnique({
+      where: {
+        id: idUser,
+      },
+    });
+
+    if (!isUserExist) {
+      throw new NotFoundException('User tidak ditemukan');
+    }
+
+    await this.prisma.user.delete({
+      where: {
+        id: idUser,
+      },
+    });
   }
 }

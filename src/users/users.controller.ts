@@ -75,13 +75,13 @@ export class UsersController {
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a user by ID' })
   @ApiResponse({
-    status: 200,
+    status: 204,
     description: 'The user has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Not Found.' })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
   @ApiResponse({ status: 500, description: 'Internal Server Error.' })
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
+  remove(@Param('id') idUser: string) {
+    return this.usersService.remove(idUser);
   }
 }
