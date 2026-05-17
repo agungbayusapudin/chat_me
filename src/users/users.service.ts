@@ -2,14 +2,19 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { hash } from 'bcrypt';
-import type { User } from '@prisma/client';
+import { PaginatedResultDto } from './dto/pagenation.dto';
+import { UserResponseDto } from './dto/response-user.dto';
+import { GetUsersDto } from './dto/get-req-users.dto';
+import { error } from 'console';
+import { NotFoundException } from '@nestjs/common';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(createUserDto: CreateUserDto): Promise<UserResponseDto> {
     const { password, ...userData } = createUserDto;
 
     const conditions = [
@@ -44,34 +49,105 @@ export class UsersService {
         },
       });
 
-      return newUser;
+      return new UserResponseDto(userData);
     } catch (error: unknown) {
       console.error(error);
       throw new InternalServerErrorException('Gagal membuat pengguna baru');
     }
   }
-  async findAll(): Promise<User> {
-    const user = await this.prisma.user.findMany();
+  async findAll(
+    fillterDto: GetUsersDto,
+  ): Promise<PaginatedResultDto<UserResponseDto>> {
+    const { page, limit, search, startDate, endDate } = fillterDto;
 
-    // pagenation format
+    const skip = (page - 1) * limit;
 
-    return user;
+    // defind where condition dinamic Search and StartDate&endDate
+    const whereCondition: Prisma.UserWhereInput = {};
+
+    if (search) {
+      whereCondition.OR = [
+        { username: { contains: search, mode: 'insensitive' } },
+        { displayName: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (startDate || endDate) {
+      whereCondition.createdAt = {};
+      if (startDate) whereCondition.createdAt.gte = startDate;
+
+      if (endDate) whereCondition.createdAt.lte = endDate;
+    }
+
+    // get rawUser and totalDate use dinamic condition and order by DSC
+    const [rawUsers, totalData] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where: whereCondition,
+        skip,
+        take: limit,
+        orderBy: { id: 'desc' },
+      }),
+
+      this.prisma.user.count({
+        where: whereCondition,
+      }),
+    ]);
+
+    // change rawUser to format Response dto (Serialized)
+    const serializedUserData = rawUsers.map(
+      (user) => new UserResponseDto(user),
+    );
+
+    const totalPage = Math.ceil(totalData / limit);
+
+    return new PaginatedResultDto<UserResponseDto>({
+      data: serializedUserData,
+      pagenation: {
+        totalData: totalData,
+        totalPage: totalPage,
+        currentPage: page,
+        limit,
+      },
+    });
   }
 
-  async findOne(id: number): Promise<string> {
-    return Promise.resolve(`This action returns a #${id} user`);
+  async findOne(idUser: string): Promise<UserResponseDto> {
+    const userData = await this.prisma.user.findUnique({
+      where: { id: idUser },
+    });
+
+    if (!userData) {
+      throw new NotFoundException('User tidak ditemukan');
+    }
+
+    return new UserResponseDto(userData);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async update(id: number, _updateUserDto: UpdateUserDto): Promise<string> {
-    return Promise.resolve(`This action updates a #${id} user`);
+  async update(
+    idUser: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<UserResponseDto> {
+    const isUserExist = await this.prisma.user.findUnique({
+      where: {
+        id: idUser,
+      },
+    });
+
+    if (!isUserExist) {
+      throw new NotFoundException('User tidak ditemukan');
+    }
+
+    const updateUser = await this.prisma.user.update({
+      where: {
+        id: idUser,
+      },
+      data: updateUserDto,
+    });
+
+    return new UserResponseDto(updateUser);
   }
 
-  async remove(id: number): Promise<string> {
-    return Promise.resolve(`This action removes a #${id} user`);
-  }
-
-  async count(): Promise<number> {
-    return this.prisma.user.count();
+  async remove(id: number): Promise<boolean> {
+    return true;
   }
 }
