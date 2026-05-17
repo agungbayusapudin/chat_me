@@ -6,12 +6,17 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
+  UseInterceptors,
+  ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { GetUsersDto } from './dto/get-req-users.dto';
 
+@UseInterceptors(ClassSerializerInterceptor)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -36,8 +41,9 @@ export class UsersController {
   })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
   @ApiResponse({ status: 500, description: 'Internal Server Error.' })
-  findAll() {
-    return this.usersService.findAll();
+  @UseInterceptors(ClassSerializerInterceptor)
+  findAll(@Query() fillterDto: GetUsersDto) {
+    return this.usersService.findAll(fillterDto);
   }
 
   @Get(':id')
@@ -49,8 +55,8 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'Not Found.' })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
   @ApiResponse({ status: 500, description: 'Internal Server Error.' })
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(+id);
+  findOne(@Param('id') idUser: string) {
+    return this.usersService.findOne(idUser);
   }
 
   @Patch(':id')
@@ -62,8 +68,8 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'Not Found.' })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
   @ApiResponse({ status: 500, description: 'Internal Server Error.' })
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(+id, updateUserDto);
+  update(@Param('id') idUser: string, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.update(idUser, updateUserDto);
   }
 
   @Delete(':id')
